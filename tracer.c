@@ -96,7 +96,7 @@ ssize_t recv(int sockfd, void *buf, size_t len, int flags)
         in_ip=inet_ntoa(sin.sin_addr);
         on_ip=inet_ntoa(son.sin_addr);
 
-        // filter our own service, db and controller
+        // filter of our own service, db and controller
         if ((in_port==80) || (on_port==80)){ 
             return old_recv(sockfd, buf, len, flags);
         }
@@ -211,17 +211,17 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags)
 ssize_t write(int fd, const void *buf, size_t count)
 {
     static void *handle = NULL;
-    static SEND old_write = NULL;
+    static WRITE old_write = NULL;
     struct sockaddr_in sin;
     struct sockaddr_in son;
     socklen_t s_len = sizeof(son);
     if( !handle )
     {
         handle = dlopen("libc.so.6", RTLD_LAZY);
-        old_send = (WRITE)dlsym(handle, "write");
+        old_write = (WRITE)dlsym(handle, "write");
     }
 
-    if  ((getsockname(sockfd, (struct sockaddr *)&sin, &s_len) != -1) &&(getpeername(sockfd, (struct sockaddr *)&son, &s_len) != -1)){
+    if  ((getsockname(fd, (struct sockaddr *)&sin, &s_len) != -1) &&(getpeername(fd, (struct sockaddr *)&son, &s_len) != -1)){
         unsigned short int in_port;
         unsigned short int on_port;
         char *in_ip;
@@ -233,20 +233,20 @@ ssize_t write(int fd, const void *buf, size_t count)
 
          // filter our own service, db and controller
         if ((in_port==80) || (on_port==80)){
-            return old_write(sockfd, buf, len, flags);
+            return old_write(fd, buf, count);
         }
 
         int check_status;
-        int new_len=len+39;
+        int new_len=count+39;
         char target[new_len];
-        memmove(target,buf,len);
+        memmove(target,buf,count);
 
         //add uuid at the end of data
         char id[39];
         random_uuid(id);
         int i;
         for (i=0;i<39;i++){
-            target[len+i]=id[i];
+            target[count+i]=id[i];
         }
 
         while (1){
@@ -260,34 +260,34 @@ ssize_t write(int fd, const void *buf, size_t count)
 
                 mark_send(id);
                 push_to_database(in_ip,in_port,getpid(),pthread_self(),id,ttime,2,new_len);
-                return old_write(sockfd, target, new_len, flags);
+                return old_write(fd, target, new_len);
             }else{
                 //other cases, to do
             }
 
             sleep(1);
         }
-        return old_write(sockfd, buf, len, flags);  
+        return old_write(fd, buf, count);  
 
     }
     
-    return old_write(sockfd, buf, len, flags);
+    return old_write(fd, buf, count);
 
 }
 
 ssize_t read(int fd, void *buf, size_t count)
 {
     static void *handle = NULL;
-    static RECV old_read = NULL;
+    static READ old_read = NULL;
     struct sockaddr_in sin; //local socket info
     struct sockaddr_in son; //remote socket into 
     socklen_t s_len = sizeof(sin);
     if( !handle )
     {
         handle = dlopen("libc.so.6", RTLD_LAZY);
-        old_recv = (READ)dlsym(handle, "read");
+        old_read = (READ)dlsym(handle, "read");
     }
-    if ((getsockname(sockfd, (struct sockaddr *)&sin, &s_len) != -1) &&(getpeername(sockfd, (struct sockaddr *)&son, &s_len) != -1))
+    if ((getsockname(fd, (struct sockaddr *)&sin, &s_len) != -1) &&(getpeername(fd, (struct sockaddr *)&son, &s_len) != -1))
     {
         unsigned short int in_port;
         unsigned short int on_port;
@@ -300,16 +300,16 @@ ssize_t read(int fd, void *buf, size_t count)
 
         // filter our own service, db and controller
         if ((in_port==80) || (on_port==80)){ 
-            return old_read(sockfd, buf, len, flags);
+            return old_read(fd, buf, count);
         }
 
-        char result[len];
+        char result[count];
         char id[39];
         int n;
         int if_id;
         int check_status;
         long long ttime;
-        n=old_read(sockfd, result, len, flags);
+        n=old_read(fd, result, count);
         // printf("RECV bytes:%d\n",n);
         if_id=get_uuid(id,result,n);
         if (if_id==0){// id can be extracted
@@ -338,20 +338,20 @@ ssize_t read(int fd, void *buf, size_t count)
         }
 
     }
-    return old_read(sockfd, buf, len, flags);
+    return old_read(fd, buf, count);
 }
 
 
 ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags){
     static void *handle = NULL;
-    static RECV old_recvmsg = NULL;
+    static RECVMSG old_recvmsg = NULL;
     struct sockaddr_in sin; //local socket info
     struct sockaddr_in son; //remote socket into 
     socklen_t s_len = sizeof(sin);
     if( !handle )
     {
         handle = dlopen("libc.so.6", RTLD_LAZY);
-        old_recv = (RECVMSG)dlsym(handle, "recvmsg");
+        old_recvmsg = (RECVMSG)dlsym(handle, "recvmsg");
     }
     if ((getsockname(sockfd, (struct sockaddr *)&sin, &s_len) != -1) &&(getpeername(sockfd, (struct sockaddr *)&son, &s_len) != -1))
     {
@@ -366,56 +366,25 @@ ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags){
 
         // filter our own service, db and controller
         if ((in_port==80) || (on_port==80)){ 
-            return old_recvmsg(sockfd, buf, len, flags);
+            return old_recvmsg(sockfd, msg, flags);
         }
-
-        char result[len];
-        char id[39];
-        int n;
-        int if_id;
-        int check_status;
-        long long ttime;
-        n=old_recvmsg(sockfd, result, len, flags);
-        // printf("RECV bytes:%d\n",n);
-        if_id=get_uuid(id,result,n);
-        if (if_id==0){// id can be extracted
-
-            while (1){
-                check_status=check_recv_status(id);
-                if (check_status==0){// this message is waiting for being received
-                    ttime=gettime();
-
-                    //for debug
-                    push_to_local_file(in_ip,in_port,getpid(),pthread_self(),id,ttime,5,n); //0 means recv,1==send
-
-                    memmove(buf,result,n-39);
-                    mark_recv(id);//mark it in the controller as received
-                    push_to_database(in_ip,in_port,getpid(),pthread_self(),id,ttime,5,n);
-                    return n-39;
-                }
-                sleep(1);
-
-            }
-        }else{
-            printf("RECV cannot extrat id\n");
-            record_to_local_file(in_ip,in_port,"recvmsg","sock");
-            memmove(buf,result,n);
-            return n;
-        }
+        //To do
+        return old_recvmsg(sockfd, msg, flags);
 
     }
-    return old_recvmsg(sockfd, buf, len, flags);}
+    return old_recvmsg(sockfd, msg, flags);
+}
 
 ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags){
     static void *handle = NULL;
-    static SEND old_send = NULL;
+    static SENDMSG old_sendmsg = NULL;
     struct sockaddr_in sin;
     struct sockaddr_in son;
     socklen_t s_len = sizeof(son);
     if( !handle )
     {
         handle = dlopen("libc.so.6", RTLD_LAZY);
-        old_send = (SENDMSG)dlsym(handle, "sendmsg");
+        old_sendmsg = (SENDMSG)dlsym(handle, "sendmsg");
     }
 
     if  ((getsockname(sockfd, (struct sockaddr *)&sin, &s_len) != -1) &&(getpeername(sockfd, (struct sockaddr *)&son, &s_len) != -1)){
@@ -430,53 +399,21 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags){
 
          // filter our own service, db and controller
         if ((in_port==80) || (on_port==80)){
-            return old_send(sockfd, buf, len, flags);
+            return old_sendmsg(sockfd, msg, flags);
         }
 
-        int check_status;
-        int new_len=len+39;
-        char target[new_len];
-        memmove(target,buf,len);
-
-        //add uuid at the end of data
-        char id[39];
-        random_uuid(id);
-        int i;
-        for (i=0;i<39;i++){
-            target[len+i]=id[i];
-        }
-
-        while (1){
-            check_status=check_send_status(id);
-            if(check_status==0){ //no message is waiting for receiving and the message queue is available
-                long long ttime;
-                ttime=gettime();
-
-                //for debug
-                push_to_local_file(in_ip,in_port,getpid(),pthread_self(),id,ttime,4,new_len);
-
-                mark_send(id);
-                push_to_database(in_ip,in_port,getpid(),pthread_self(),id,ttime,4,new_len);
-                return old_sendmsg(sockfd, target, new_len, flags);
-            }else{
-                //other cases, to do
-            }
-
-            sleep(1);
-        }
-        return old_sendmsg(sockfd, buf, len, flags);  
-
+        return old_sendmsg(sockfd, msg, flags);  
     }
     
-    return old_sendmsg(sockfd, buf, len, flags);
+    return old_sendmsg(sockfd, msg, flags);
 }
 
-ssize_t sendto(int socket, char *buf, int buflen, int flags,struct sockaddr *addr, int addrlen){
+// ssize_t sendto(int socket, char *buf, int buflen, int flags,struct sockaddr *addr, int addrlen){
 
-}
-typedef recvfrom(*RECVFROM)(int socket, char *buf, int buflen, int flags,struct sockaddr *addr, int *addrlen){
+// }
+// ssize_t recvfrom(int socket, char *buf, int buflen, int flags,struct sockaddr *addr, int *addrlen){
 
-}
+// }
 
 int get_uuid(char* result,char* buf,int start){
     int i=start-39;
@@ -529,7 +466,7 @@ int getresponse(char* post_parameter){
     struct string s;
     init_string(&s);
 
-    curl_easy_setopt(curl, CURLOPT_URL, "10.211.55.38/test.php");
+    curl_easy_setopt(curl, CURLOPT_URL, "10.211.55.38/controller.php");
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_parameter);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writefunc);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &s);
