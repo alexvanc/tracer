@@ -97,7 +97,7 @@ ssize_t recv(int sockfd, void *buf, size_t len, int flags)
         on_ip=inet_ntoa(son.sin_addr);
 
         // filter of our own service, db and controller
-        if ((in_port==80) || (on_port==80)){ 
+        if ((in_port==80) || (on_port==80)||(strcmp(in_ip,"10.211.55.38")==0)||(strcmp(on_ip,"10.211.55.38")==0)){  
             return old_recv(sockfd, buf, len, flags);
         }
 
@@ -122,6 +122,14 @@ ssize_t recv(int sockfd, void *buf, size_t len, int flags)
 
                     memmove(buf,result,n-39);
                     mark_recv(id);//mark it in the controller as received
+
+                    //repeat these steps before pushing ip/port to tracedb
+                    in_port=ntohs(sin.sin_port);
+                    on_port=ntohs(son.sin_port);
+                    in_ip=inet_ntoa(sin.sin_addr);
+                    on_ip=inet_ntoa(son.sin_addr);
+
+                    //syscall(SYS_gettid) also can be use to get thread id
                     push_to_database(in_ip,in_port,getpid(),pthread_self(),id,ttime,0,n);
                     return n-39;
                 }
@@ -165,7 +173,7 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags)
         on_ip=inet_ntoa(son.sin_addr);
 
          // filter our own service, db and controller
-        if ((in_port==80) || (on_port==80)){
+        if ((in_port==80) || (on_port==80)||(strcmp(in_ip,"10.211.55.38")==0)||(strcmp(on_ip,"10.211.55.38")==0)){ 
             return old_send(sockfd, buf, len, flags);
         }
 
@@ -192,6 +200,13 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags)
                 push_to_local_file(in_ip,in_port,getpid(),pthread_self(),id,ttime,1,new_len);
 
                 mark_send(id);
+
+                //repeat these steps before pushing ip/port to tracedb
+                in_port=ntohs(sin.sin_port);
+                on_port=ntohs(son.sin_port);
+                in_ip=inet_ntoa(sin.sin_addr);
+                on_ip=inet_ntoa(son.sin_addr);
+
                 push_to_database(in_ip,in_port,getpid(),pthread_self(),id,ttime,1,new_len);
                 return old_send(sockfd, target, new_len, flags);
             }else{
@@ -232,7 +247,7 @@ ssize_t write(int fd, const void *buf, size_t count)
         on_ip=inet_ntoa(son.sin_addr);
 
          // filter our own service, db and controller
-        if ((in_port==80) || (on_port==80)){
+        if ((in_port==80) || (on_port==80)||(strcmp(in_ip,"10.211.55.38")==0)||(strcmp(on_ip,"10.211.55.38")==0)){ 
             return old_write(fd, buf, count);
         }
 
@@ -259,6 +274,11 @@ ssize_t write(int fd, const void *buf, size_t count)
                 push_to_local_file(in_ip,in_port,getpid(),pthread_self(),id,ttime,2,new_len);
 
                 mark_send(id);
+
+                in_port=ntohs(sin.sin_port);
+                on_port=ntohs(son.sin_port);
+                in_ip=inet_ntoa(sin.sin_addr);
+                on_ip=inet_ntoa(son.sin_addr);
                 push_to_database(in_ip,in_port,getpid(),pthread_self(),id,ttime,2,new_len);
                 return old_write(fd, target, new_len);
             }else{
@@ -299,7 +319,7 @@ ssize_t read(int fd, void *buf, size_t count)
         on_ip=inet_ntoa(son.sin_addr);
 
         // filter our own service, db and controller
-        if ((in_port==80) || (on_port==80)){ 
+        if ((in_port==80) || (on_port==80)||(strcmp(in_ip,"10.211.55.38")==0)||(strcmp(on_ip,"10.211.55.38")==0)){  
             return old_read(fd, buf, count);
         }
 
@@ -324,6 +344,11 @@ ssize_t read(int fd, void *buf, size_t count)
 
                     memmove(buf,result,n-39);
                     mark_recv(id);//mark it in the controller as received
+
+                    in_port=ntohs(sin.sin_port);
+                    on_port=ntohs(son.sin_port);
+                    in_ip=inet_ntoa(sin.sin_addr);
+                    on_ip=inet_ntoa(son.sin_addr);
                     push_to_database(in_ip,in_port,getpid(),pthread_self(),id,ttime,3,n);
                     return n-39;
                 }
@@ -331,7 +356,7 @@ ssize_t read(int fd, void *buf, size_t count)
 
             }
         }else{
-            printf("RECV cannot extrat id\n");
+            printf("READ cannot extrat id\n");
             record_to_local_file(in_ip,in_port,"read","sock");
             memmove(buf,result,n);
             return n;
@@ -365,7 +390,7 @@ ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags){
         on_ip=inet_ntoa(son.sin_addr);
 
         // filter our own service, db and controller
-        if ((in_port==80) || (on_port==80)){ 
+        if ((in_port==80) || (on_port==80)||(strcmp(in_ip,"10.211.55.38")==0)||(strcmp(on_ip,"10.211.55.38")==0)){  
             return old_recvmsg(sockfd, msg, flags);
         }
         //To do
@@ -398,7 +423,7 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags){
         on_ip=inet_ntoa(son.sin_addr);
 
          // filter our own service, db and controller
-        if ((in_port==80) || (on_port==80)){
+        if ((in_port==80) || (on_port==80)||(strcmp(in_ip,"10.211.55.38")==0)||(strcmp(on_ip,"10.211.55.38")==0)){ 
             return old_sendmsg(sockfd, msg, flags);
         }
 
@@ -583,7 +608,6 @@ int push_to_database(char* ip,int port,pid_t pid,pthread_t tid,char* uuid,long l
     return getresponse(parameter);
 
 }
-
 
 
 

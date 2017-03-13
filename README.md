@@ -11,9 +11,8 @@ tracer-beta
 ###To Do
 	1、Case 2: message queue based requests tracing
 	2、sendmsg/recvmsg, sendto/recvfrom function interception.
-	3、solve the problems of extracting ip and thread id
-	4、add connection info interception and send it to the trace database
-	5、Automatically generate the trace of a request from the trace database
+	3、add connection info interception and send it to the trace database
+	4、Automatically generate the trace of a request from the trace database
 	
 	
 
