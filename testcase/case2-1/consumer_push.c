@@ -26,40 +26,11 @@ static void handle_connect(int s_s)
         char buff[BUFFLEN];                     /*?~T??~O~Q?~U??~M??~S?~F??~L?*/
         int n = 0;
         memset(buff, 0, BUFFLEN);               /*?~E?~[?*/
-        n = recv(s_c, buff, BUFFLEN,0);     /*?~N??~T??~O~Q?~@~A?~V??~U??~M?*/
-        // if(n > 0 && !strncmp(buff, "TIME", 4))  /*?~H??~V??~X??~P??~P~H?~U?~N??~T??~U??~M?*/
-        // {
-        //     memset(buff, 0, BUFFLEN);           /*?~E?~[?*/
-        //     now = time(NULL);                   /*?~S?~I~M?~W??~W?*/
-        //     sprintf(buff, "%24s\r\n",ctime(&now));  /*?~F?~W??~W??~M?~H??~E??~S?~F??~L?*/
-        //     send(s_c, buff, strlen(buff),0);    /*?~O~Q?~@~A?~U??~M?*/
-        // }
+        n = recv(s_c, buff, BUFFLEN,0);  
+
         if (n>0){
-            printf("server receive 1:%s\n",buff);
+            printf("Consumer receive :%s\n",buff);
         }
-
-        memset(buff, 0, BUFFLEN);
-        strcpy(buff, "server send 1\n");                       /*?~M?~H??~O~Q?~@~A?~W符串*/
-        send(s_c, buff, strlen(buff), 0); 
-
-        memset(buff, 0, BUFFLEN); 
-        n = recv(s_c, buff, BUFFLEN,0);
-        if (n>0){
-            printf("server receive 2:%s\n",buff);
-        }
-        memset(buff, 0, BUFFLEN);
-        strcpy(buff, "server send 2\n");                       /*?~M?~H??~O~Q?~@~A?~W符串*/
-        send(s_c, buff, strlen(buff), 0); 
-
-        memset(buff, 0, BUFFLEN); 
-        n = recv(s_c, buff, BUFFLEN,0);
-        if (n>0){
-            printf("server receive 3:%s\n",buff);
-        }
-        memset(buff, 0, BUFFLEN);
-        strcpy(buff, "server send 3\n");                       /*?~M?~H??~O~Q?~@~A?~W符串*/
-        send(s_c, buff, strlen(buff), 0);
-
              
         /*?~E??~W?客?~H?端*/
         close(s_c);

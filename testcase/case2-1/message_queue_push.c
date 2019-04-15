@@ -7,61 +7,76 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <signal.h>
+#include <netdb.h>
+
 #define BUFFLEN 1024
 #define SERVER_PORT 8888
 #define BACKLOG 5
 #define PIDNUMB 3
+
+char * consumers[] = {"10.211.55.34", "10.211.55.37"};
+
+char message[BUFFLEN];
+
+char * get_consumer(){
+    int i,number;
+    srand((unsigned) time(NULL)); 
+    number= rand() % 2;
+    return consumers[number];
+}
+
 static void handle_connect(int s_s)
 {
     int s_c;                                    /*客?~H?端?~W?~N??~W?~V~G件?~O~O述符*/
     struct sockaddr_in from;                    /*客?~H?端?~\??~]~@*/
     socklen_t len = sizeof(from);
+    char buff[BUFFLEN]; 
 
     /*主?~D?~P~F?~G?~K*/
     while(1)
     {
         /*?~N??~T?客?~H?端?~^?~N?*/
         s_c = accept(s_s, (struct sockaddr*)&from, &len);
-        time_t now;                             /*?~W??~W?*/
-        char buff[BUFFLEN];                     /*?~T??~O~Q?~U??~M??~S?~F??~L?*/
         int n = 0;
         memset(buff, 0, BUFFLEN);               /*?~E?~[?*/
         n = recv(s_c, buff, BUFFLEN,0);     /*?~N??~T??~O~Q?~@~A?~V??~U??~M?*/
-        // if(n > 0 && !strncmp(buff, "TIME", 4))  /*?~H??~V??~X??~P??~P~H?~U?~N??~T??~U??~M?*/
-        // {
-        //     memset(buff, 0, BUFFLEN);           /*?~E?~[?*/
-        //     now = time(NULL);                   /*?~S?~I~M?~W??~W?*/
-        //     sprintf(buff, "%24s\r\n",ctime(&now));  /*?~F?~W??~W??~M?~H??~E??~S?~F??~L?*/
-        //     send(s_c, buff, strlen(buff),0);    /*?~O~Q?~@~A?~U??~M?*/
-        // }
-        if (n>0){
-            printf("server receive 1:%s\n",buff);
+        strcpy(message, buff);                       
+        if (n>0){ //push message to a consumer
+            char * consumer=get_consumer();
+            char buff2[BUFFLEN]; 
+            int s;  
+                
+
+            struct sockaddr_in server;                  
+            struct hostent *he;
+            he = gethostbyname(consumer);                                 /*?~N??~T??~W符串?~U?度*/
+
+            /*建?~KTCP?~W?~N??~W*/
+            s = socket(AF_INET, SOCK_STREAM, 0);
+
+            /*?~H~]?~K?~L~V?~\??~]~@*/
+            memset(&server, 0, sizeof(server));     /*?~E?~[?*/
+            server.sin_family = AF_INET;                /*AF_INET?~M~O议?~W~O*/
+            // server.sin_addr.s_addr = htonl(INADDR_ANY);/*任?~D~O?~\??~\??~\??~]~@*/
+            // sesrver.sin_addr.s_addr = htonl(inet_addr("127.0.0.1"));/*任?~D~O?~\??~\??~\??~]~@*/
+            server.sin_addr=*((struct in_addr *)he->h_addr);
+            server.sin_port = htons(SERVER_PORT);       /*?~\~M?~J??~Y?端?~O?*/
+
+            /*?~^?~N??~\~M?~J??~Y?*/
+            connect(s, (struct sockaddr*)&server,sizeof(server));
+            memset(buff2, 0, BUFFLEN);                   /*?~E?~[?*/
+            strcpy(buff2, message);                       /*?~M?~H??~O~Q?~@~A?~W符串*/
+            /*?~O~Q?~@~A?~U??~M?*/
+            send(s, buff2, strlen(buff2), 0);
+            memset(buff2, 0, BUFFLEN);    
+            printf("push message to consumer:%s\t%s\n",consumer,message);
+            close(s);         
         }
 
         memset(buff, 0, BUFFLEN);
-        strcpy(buff, "server send 1\n");                       /*?~M?~H??~O~Q?~@~A?~W符串*/
-        send(s_c, buff, strlen(buff), 0); 
-
-        memset(buff, 0, BUFFLEN); 
-        n = recv(s_c, buff, BUFFLEN,0);
-        if (n>0){
-            printf("server receive 2:%s\n",buff);
-        }
-        memset(buff, 0, BUFFLEN);
-        strcpy(buff, "server send 2\n");                       /*?~M?~H??~O~Q?~@~A?~W符串*/
-        send(s_c, buff, strlen(buff), 0); 
-
-        memset(buff, 0, BUFFLEN); 
-        n = recv(s_c, buff, BUFFLEN,0);
-        if (n>0){
-            printf("server receive 3:%s\n",buff);
-        }
-        memset(buff, 0, BUFFLEN);
-        strcpy(buff, "server send 3\n");                       /*?~M?~H??~O~Q?~@~A?~W符串*/
-        send(s_c, buff, strlen(buff), 0);
-
+        
              
-        /*?~E??~W?客?~H?端*/
+
         close(s_c);
     }
 
