@@ -2,13 +2,13 @@
 ## REPTrace 安装及使用
 ### 1. 环境准备
 1）安装依赖库
-​    **Ubuntu**
+**Ubuntu**
 
 ```bash
 apt-get install uuid-dev
 apt-get install libcurl4-openssl-dev
 ```
-​     **CentOS**
+**CentOS**
 ```bash
 yum install e2fsprogs-devel
 yum install uuid-devel
@@ -19,9 +19,10 @@ yum install curl-devel.x86_64
 2）编译
 
   a)  修改src/tracer.c文件
-​    第11、12行的IP改为本机IP(如果是容器，则改为容器IP)
-​    第18行的*legal_ip_list*改为需要追踪的机器的IP(如有多个，依次添加)
-​    **注意 :** 第17行的*ip_list_length*需要与第18行的*legal_ip_list*数组长度一致。
+ 
+第11、12行的IP改为本机IP(如果是容器，则改为容器IP)
+第18行的*legal_ip_list*改为需要追踪的机器的IP(如有多个，依次添加)
+**注意 :** 第17行的*ip_list_length*需要与第18行的*legal_ip_list*数组长度一致。
 
   b) 编译
 
@@ -49,8 +50,11 @@ LD_PRELOAD=/home/trace/hook.so 应用运行命令
 
 ```bash
 cd ./testcase/case1
+gcc -o server server.c
 gcc -o client1 client1.c
-LD_PRELOAD=/home/trace/hook.so client1 #需要将路径改为本地hook.so 的路径
+在两个窗口中分别运行：（需要将路径改为本地hook.so的路径）
+LD_PRELOAD=/home/trace/hook.so server（先运行）
+LD_PRELOAD=/home/trace/hook.so client1 
 ```
 生成的traceData位于**/tmp/trace/**目录下
 
