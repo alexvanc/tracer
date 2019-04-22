@@ -15,7 +15,7 @@ const char* debugFilePath="/tmp/trace/tracelog2.txt";
 const char* dataFilePath="/tmp/trace/traceData.dat";
 const char* errFilePath="/tmp/trace/traceErr.txt";
 int ip_list_length=4;
-char *legal_ip_list[]={"127.0.0.1","137.82.252.59","0.0.0.0","137.82.252.45"};
+char *legal_ip_list[]={"127.0.0.1","137.82.252.59","0.0.0.0","172.17.0.3"};
 
 const char* logRule="logs";
 
@@ -37,9 +37,9 @@ ssize_t recv(int sockfd, void *buf, size_t len, int flags)
         handle = dlopen("libc.so.6", RTLD_LAZY);
         old_recv = (RECV)dlsym(handle, "recv");
     }
-    if(!uuid_key){
-        pthread_key_create(&uuid_key,NULL);
-    }
+    // if(!uuid_key){
+    //     pthread_key_create(&uuid_key,NULL);
+    // }
     
 #ifdef DEBUG
     char log_text[LOG_LENGTH]="init";
@@ -294,9 +294,9 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags)
         handle = dlopen("libc.so.6", RTLD_LAZY);
         old_send = (SEND)dlsym(handle, "send");
     }
-    if(!uuid_key){
-        pthread_key_create(&uuid_key,NULL);
-    }
+    // if(!uuid_key){
+    //     pthread_key_create(&uuid_key,NULL);
+    // }
 #ifdef DEBUG
     char log_text[LOG_LENGTH]="init";
     sprintf(log_text,"%s\t","in send");
@@ -557,9 +557,9 @@ ssize_t write(int fd, const void *buf, size_t count)
         handle = dlopen("libc.so.6", RTLD_LAZY);
         old_write = (WRITE)dlsym(handle, "write");
     }
-    if(!uuid_key){
-        pthread_key_create(&uuid_key,NULL);
-    }
+    // if(!uuid_key){
+    //     pthread_key_create(&uuid_key,NULL);
+    // }
     //if fd is not a socket, return directly
     if (!is_socket(fd)){//only for log enhancement
         if(check_log(fd,count)){
@@ -878,9 +878,9 @@ ssize_t read(int fd, void *buf, size_t count)
     if (!is_socket(fd)){
         return old_read(fd, buf, count);
     }
-    if(!uuid_key){
-        pthread_key_create(&uuid_key,NULL);
-    }
+    // if(!uuid_key){
+    //     pthread_key_create(&uuid_key,NULL);
+    // }
 #ifdef DEBUG
     char log_text[LOG_LENGTH]="init";
     sprintf(log_text,"%s\t","in read");
@@ -1142,9 +1142,9 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags){
         handle = dlopen("libc.so.6", RTLD_LAZY);
         old_sendmsg = (SENDMSG)dlsym(handle, "sendmsg");
     }
-    if(!uuid_key){
-        pthread_key_create(&uuid_key,NULL);
-    }
+    // if(!uuid_key){
+    //     pthread_key_create(&uuid_key,NULL);
+    // }
     //    struct msghdr {
     //        void         *msg_name;       /* optional address */
     //        socklen_t     msg_namelen;    /* size of address */
@@ -1394,9 +1394,9 @@ ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,struct sockaddr *s
         handle = dlopen("libc.so.6", RTLD_LAZY);
         old_recvfrom = (RECVFROM)dlsym(handle, "recvfrom");
     }
-    if(!uuid_key){
-        pthread_key_create(&uuid_key,NULL);
-    }
+    // if(!uuid_key){
+    //     pthread_key_create(&uuid_key,NULL);
+    // }
     
     //    log_important("in recvfrom");
     return old_recvfrom (sockfd,buf,len,flags,src_addr,addrlen);
@@ -1411,9 +1411,9 @@ ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags){
         handle = dlopen("libc.so.6", RTLD_LAZY);
         old_recvmsg = (RECVMSG)dlsym(handle, "recvmsg");
     }
-    if(!uuid_key){
-        pthread_key_create(&uuid_key,NULL);
-    }
+    // if(!uuid_key){
+    //     pthread_key_create(&uuid_key,NULL);
+    // }
 #ifdef DEBUG
     char log_text[LOG_LENGTH]="init";
     sprintf(log_text,"%s\t","in recvmsg");
@@ -1678,9 +1678,9 @@ int sendmmsg(int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int flags){
         handle = dlopen("libc.so.6", RTLD_LAZY);
         old_sendmmsg = (SENDMMSG)dlsym(handle, "sendmmsg");
     }
-    if(!uuid_key){
-        pthread_key_create(&uuid_key,NULL);
-    }
+    // if(!uuid_key){
+    //     pthread_key_create(&uuid_key,NULL);
+    // }
     //    if  ((getsockname(sockfd, (struct sockaddr *)&sin, &s_len) != -1) &&(getpeername(sockfd, (struct sockaddr *)&son, &s_len) != -1)){
     log_important("in sendmmsg\n");
     //        return old_sendmmsg(sockfd,msgvec,vlen,flags);
@@ -1713,9 +1713,9 @@ ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count){
         handle = dlopen("libc.so.6", RTLD_LAZY);
         old_sendfile = (SENDFILE)dlsym(handle, "sendfile");
     }
-    if(!uuid_key){
-        pthread_key_create(&uuid_key,NULL);
-    }
+    // if(!uuid_key){
+    //     pthread_key_create(&uuid_key,NULL);
+    // }
     if(is_socket(out_fd)){
         log_important("in sendfile");
     }
@@ -1733,9 +1733,9 @@ ssize_t sendfile64(int out_fd, int in_fd, off64_t *offset, size_t count){
         old_sendfile64 = (SENDFILE64)dlsym(handle, "sendfile64");
         old_write=(WRITE)dlsym(handle,"write");
     }
-    if(!uuid_key){
-        pthread_key_create(&uuid_key,NULL);
-    }
+    // if(!uuid_key){
+    //     pthread_key_create(&uuid_key,NULL);
+    // }
     if(is_socket(in_fd)){
         log_important("note_insock_sendfile64");
     }
@@ -1979,9 +1979,9 @@ ssize_t readv(int fd, const struct iovec *iov, int iovcnt){
         handle = dlopen("libc.so.6", RTLD_LAZY);
         old_readv = (READV)dlsym(handle, "readv");
     }
-    if(!uuid_key){
-        pthread_key_create(&uuid_key,NULL);
-    }
+    // if(!uuid_key){
+    //     pthread_key_create(&uuid_key,NULL);
+    // }
     if (is_socket(fd)){
         
     }
@@ -1998,9 +1998,9 @@ ssize_t writev(int fd, const struct iovec *iov, int iovcnt){
         handle = dlopen("libc.so.6", RTLD_LAZY);
         old_writev = (WRITEV)dlsym(handle, "writev");
     }
-    if(!uuid_key){
-        pthread_key_create(&uuid_key,NULL);
-    }
+    // if(!uuid_key){
+    //     pthread_key_create(&uuid_key,NULL);
+    // }
     if (!is_socket(fd)){
         return old_writev(fd,iov,iovcnt);
     }
