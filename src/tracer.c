@@ -6,17 +6,31 @@
 
 //0 controller off
 //1 controller on
-const short with_uuid=1;
+short config_init_flag=0;
+const char* config_file="/etc/trace.conf";
 
+
+int with_parameter=0;
+int string_parameter_length=30;
+
+
+int collection_mode=0;
+const char* dataFilePath="/tmp/traceData.dat";
 const char* controllerip="137.82.252.59";
 const char* controller_service="137.82.252.59/controller.php";
-const char* filePath="/tmp/trace/tracelog.txt";
-const char* debugFilePath="/tmp/trace/tracelog2.txt";
-const char* dataFilePath="/tmp/trace/traceData.dat";
-const char* errFilePath="/tmp/trace/traceErr.txt";
-int ip_list_length=4;
-char *legal_ip_list[]={"127.0.0.1","137.82.252.59","0.0.0.0","172.17.0.3"};
 
+int with_uuid=1;
+
+int white_entity_length=0;
+struct white_entity * legal_entity_list;
+
+
+const char* filePath="/tmp/tracelog.txt";
+const char* debugFilePath="/tmp/tracelog2.txt";
+const char* errFilePath="/tmp/traceErr.txt";
+
+
+int enhance_log=0;
 const char* logRule="logs";
 
 const char* idenv="UUID_PASS";
@@ -37,9 +51,19 @@ ssize_t recv(int sockfd, void *buf, size_t len, int flags)
         handle = dlopen("libc.so.6", RTLD_LAZY);
         old_recv = (RECV)dlsym(handle, "recv");
     }
-    // if(!uuid_key){
-    //     pthread_key_create(&uuid_key,NULL);
-    // }
+    
+    char p_parameter[1024]="";
+    if(with_parameter){
+        char string_parameter[512];
+        char *template="(%d, %s, %ld, %d)";
+        int k;
+        for(k=0;k<string_parameter_length;k++){
+            string_parameter[k]=((char *)buf)[k];
+        }
+        string_parameter[string_parameter_length]='\0';
+        sprintf(p_parameter,template,sockfd,string_parameter,len,flags);
+    }
+
     
 #ifdef DEBUG
     char log_text[LOG_LENGTH]="init";
@@ -123,7 +147,7 @@ ssize_t recv(int sockfd, void *buf, size_t len, int flags)
             if((on_port==80)||(in_port==80)){
                 return n;
             }
-            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECV,n,len,n,sockfd,RECV_FILTER,buf);
+            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECV,n,len,n,sockfd,RECV_FILTER,p_parameter);
             errno=tmp_erro;
             return n;
         }
@@ -153,7 +177,7 @@ ssize_t recv(int sockfd, void *buf, size_t len, int flags)
             sprintf(log_text,"%s%s\n",log_text,"recv done without uuid!");
             log_event(log_text);
 #endif
-            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECV,n,len,n,sockfd,RECV_NORMALLY,buf);
+            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECV,n,len,n,sockfd,RECV_NORMALLY,p_parameter);
             errno=tmp_erro;
             return n;
         }else{
@@ -176,7 +200,7 @@ ssize_t recv(int sockfd, void *buf, size_t len, int flags)
                 sprintf(log_text,"%sresult:%ld\n",log_text,n);
                 log_event(log_text);
 #endif
-                push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECV,n,len,n,sockfd,RECV_LEFT,buf);
+                push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECV,n,len,n,sockfd,RECV_LEFT,p_parameter);
                 errno=tmp_erro;
                 return n;
             }else{
@@ -194,12 +218,12 @@ ssize_t recv(int sockfd, void *buf, size_t len, int flags)
                             sprintf(log_text,"%sheader:%lu\tnormal\tresult:%ld\n",log_text,original_length,len);
                             log_event(log_text);
 #endif
-                            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECV,ID_LENGTH,len,len,sockfd,RECV_FAIL,buf);
+                            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECV,ID_LENGTH,len,len,sockfd,RECV_FAIL,p_parameter);
                             errno=tmp_erro;
                             return len;
                         }else{
                             memmove(buf,uuids,header_length);
-                            ssize_t second=old_recv(sockfd,&buf[header_length],len-header_length,flags);
+                            ssize_t second=old_recv(sockfd,&((char *)buf)[header_length],len-header_length,flags);
                             tmp_erro=errno;
                             if (second<=0){
                                 log_important("note_noid_error_recv");
@@ -210,7 +234,7 @@ ssize_t recv(int sockfd, void *buf, size_t len, int flags)
                             sprintf(log_text,"%sheader:%lu\tnormal2\tresult:%ld\n",log_text,original_length,n);
                             log_event(log_text);
 #endif
-                            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECV,n,len,n,sockfd,RECV_BYD,buf);
+                            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECV,n,len,n,sockfd,RECV_BYD,p_parameter);
                             errno=tmp_erro;
                             return n;
                         }
@@ -226,7 +250,7 @@ ssize_t recv(int sockfd, void *buf, size_t len, int flags)
                         sprintf(log_text,"%suuid:%s\theader:%ld\tresult:%ld\n",log_text,tmp_id,original_length,n);
                         log_event(log_text);
 #endif
-                        push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),tmp_id,gettime(),F_RECV,ID_LENGTH+n,len,n,sockfd,RECV_ID,buf);
+                        push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),tmp_id,gettime(),F_RECV,ID_LENGTH+n,len,n,sockfd,RECV_ID,p_parameter);
                         errno=tmp_erro;
                         return n;
                     }
@@ -242,7 +266,7 @@ ssize_t recv(int sockfd, void *buf, size_t len, int flags)
                     sprintf(log_text,"%sresult:%ld\tempty\n",log_text,header_length);
                     log_event(log_text);
 #endif
-                    push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECV,header_length,len,header_length,sockfd,f_type,NULL);
+                    push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECV,header_length,len,header_length,sockfd,f_type,p_parameter);
                     errno=tmp_erro;
                     return header_length;
                 }
@@ -294,9 +318,19 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags)
         handle = dlopen("libc.so.6", RTLD_LAZY);
         old_send = (SEND)dlsym(handle, "send");
     }
-    // if(!uuid_key){
-    //     pthread_key_create(&uuid_key,NULL);
-    // }
+    
+    char p_parameter[1024]="";
+    if(with_parameter){
+        char string_parameter[512];
+        char *template="(%d, %s, %ld, %d)";
+        int k;
+        for(k=0;k<string_parameter_length;k++){
+            string_parameter[k]=((char *)buf)[k];
+        }
+        string_parameter[string_parameter_length]='\0';
+        sprintf(p_parameter,template,sockfd,string_parameter,len,flags);
+    }
+
 #ifdef DEBUG
     char log_text[LOG_LENGTH]="init";
     sprintf(log_text,"%s\t","in send");
@@ -394,7 +428,7 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags)
                 return n;
             }
             int tmp_erro=errno;
-            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_SEND,n,len,n,sockfd,SEND_FILTER,buf);
+            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_SEND,n,len,n,sockfd,SEND_FILTER,p_parameter);
             errno=tmp_erro;
             return n;
         }
@@ -410,7 +444,7 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags)
             sprintf(log_text,"%sresult:%ld\t%s\n",log_text,n,"send done without uuid!");
             log_event(log_text);
 #endif
-            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_SEND,n,len,n,sockfd,SEND_NORMALLY,buf);
+            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_SEND,n,len,n,sockfd,SEND_NORMALLY,p_parameter);
             errno=tmp_erro;
             return n;
         }else{
@@ -510,7 +544,7 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags)
             log_event(log_text);
 #endif
             errno=0;
-            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),tmp_id,gettime(),F_SEND,n,len,rvalue,sockfd,f_type,buf);
+            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),tmp_id,gettime(),F_SEND,n,len,rvalue,sockfd,f_type,p_parameter);
             errno=tmp_erro;
             return rvalue;
         }
@@ -557,61 +591,69 @@ ssize_t write(int fd, const void *buf, size_t count)
         handle = dlopen("libc.so.6", RTLD_LAZY);
         old_write = (WRITE)dlsym(handle, "write");
     }
-    // if(!uuid_key){
-    //     pthread_key_create(&uuid_key,NULL);
-    // }
-    //if fd is not a socket, return directly
+    
+    char p_parameter[1024]="";
+    if(with_parameter){
+        char string_parameter[512];
+        char *template="(%d, %s, %ld)";
+        int k;
+        for(k=0;k<string_parameter_length;k++){
+            string_parameter[k]=((char *)buf)[k];
+        }
+        string_parameter[string_parameter_length]='\0';
+        sprintf(p_parameter,template,fd,string_parameter,count);
+    }
+    //if fd is not a socket
     if (!is_socket(fd)){//only for log enhancement
-        if(check_log(fd,count)){
-            
-            
-            char * unit_uuid=(char *)pthread_getspecific(uuid_key);
-            char mark[LOG_LENGTH]="";
-            sprintf(mark,"%s %ld ",unit_uuid,syscall(SYS_gettid));
-            
-            int extra=strlen(mark);
-            size_t new_len=count+extra;
-            char target[new_len];
-            
-            memmove(target,mark,extra);
-            //            }
-            memmove(&target[extra],buf,count);
-            
-            
-            
-            ssize_t n=old_write(fd, target, new_len);
-            int tmp_erro=errno;
-            while((n!=new_len)&&((tmp_erro==0)||(tmp_erro==EAGAIN)||(tmp_erro==EWOULDBLOCK))){
-                ssize_t tmpValue=0;
-                if(n!=-1){
-                    tmpValue=old_write(fd, &target[n], new_len-n);
+        
+        if(enhance_log&&check_log(fd,count)){
+                char * unit_uuid=(char *)pthread_getspecific(uuid_key);
+                char mark[LOG_LENGTH]="";
+                sprintf(mark,"%s %ld ",unit_uuid,syscall(SYS_gettid));
+                
+                int extra=strlen(mark);
+                size_t new_len=count+extra;
+                char target[new_len];
+                
+                memmove(target,mark,extra);
+                memmove(&target[extra],buf,count);
+                
+                ssize_t n=old_write(fd, target, new_len);
+                int tmp_erro=errno;
+                while((n!=new_len)&&((tmp_erro==0)||(tmp_erro==EAGAIN)||(tmp_erro==EWOULDBLOCK))){
+                    ssize_t tmpValue=0;
+                    if(n!=-1){
+                        tmpValue=old_write(fd, &target[n], new_len-n);
+                    }else{
+                        tmpValue=old_write(fd, &target[0], new_len);
+                    }
+                    tmp_erro=errno;
+                    if(tmpValue>=0){
+                        n+=tmpValue;
+                    }
+                }
+                
+                if(n==new_len){
+                    errno=0;
+                    push_event_to_database(F_WRITEF,count,gettime(),getpid(),syscall(SYS_gettid),pthread_self(),p_parameter);
+                    return count;
+                }else if((n<new_len)&&(n>=ID_LENGTH)){
+                    log_important("note_shortlogs_write");
+                    push_event_to_database(F_WRITEF,n-ID_LENGTH,gettime(),getpid(),syscall(SYS_gettid),pthread_self(),p_parameter);
+                    return n-ID_LENGTH;
+                }else if(n==0){
+                    log_important("fatal_shortlogs1_write");
+                    errno=tmp_erro;
+                    return 0;
                 }else{
-                    tmpValue=old_write(fd, &target[0], new_len);
+                    log_important("fatal_shortlogs2_write");
+                    errno=tmp_erro;
+                    return -1;
                 }
-                tmp_erro=errno;
-                if(tmpValue>=0){
-                    n+=tmpValue;
-                }
-            }
-            
-            if(n==new_len){
-                errno=0;
-                return count;
-            }else if((n<new_len)&&(n>=ID_LENGTH)){
-                log_important("note_shortlogs_write");
-                return n-ID_LENGTH;
-            }else if(n==0){
-                log_important("fatal_shortlogs1_write");
-                errno=tmp_erro;
-                return 0;
-            }else{
-                log_important("fatal_shortlogs2_write");
-                errno=tmp_erro;
-                return -1;
-            }
-            
         }else{
-            return old_write(fd, buf, count);
+            ssize_t n=old_write(fd, buf, count);
+            push_event_to_database(F_WRITEF,n,gettime(),getpid(),syscall(SYS_gettid),pthread_self(),p_parameter);
+            return n;
         }
         
     }
@@ -711,7 +753,7 @@ ssize_t write(int fd, const void *buf, size_t count)
                 errno=tmp_erro;
                 return n;
             }
-            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_WRITE,n,count,n,fd,SEND_FILTER,buf);
+            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_WRITE,n,count,n,fd,SEND_FILTER,p_parameter);
             errno=tmp_erro;
             return n;
         }
@@ -728,7 +770,7 @@ ssize_t write(int fd, const void *buf, size_t count)
             sprintf(log_text,"%sresult:%ld\t%s\n",log_text,n,"write done without uuid!");
             log_event(log_text);
 #endif
-            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_WRITE,n,count,n,fd,SEND_NORMALLY,buf);
+            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_WRITE,n,count,n,fd,SEND_NORMALLY,p_parameter);
             errno=tmp_erro;
             return n;
         }else{
@@ -825,7 +867,7 @@ ssize_t write(int fd, const void *buf, size_t count)
                 
             }
             errno=0;
-            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),tmp_id,gettime(),F_WRITE,n,count,rvalue,fd,f_type,buf);
+            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),tmp_id,gettime(),F_WRITE,n,count,rvalue,fd,f_type,p_parameter);
 #ifdef DEBUG
             log_event(log_text);
 #endif
@@ -875,12 +917,26 @@ ssize_t read(int fd, void *buf, size_t count)
         handle = dlopen("libc.so.6", RTLD_LAZY);
         old_read = (READ)dlsym(handle, "read");
     }
-    if (!is_socket(fd)){
-        return old_read(fd, buf, count);
+    
+    char p_parameter[1024]="";
+    
+    if(with_parameter){
+        char string_parameter[512];
+        char *template="(%d, %s, %ld)";
+        int k;
+        for(k=0;k<string_parameter_length;k++){
+            string_parameter[k]=((char *)buf)[k];
+        }
+        string_parameter[string_parameter_length]='\0';
+        sprintf(p_parameter,template,fd,string_parameter,count);
     }
-    // if(!uuid_key){
-    //     pthread_key_create(&uuid_key,NULL);
-    // }
+    
+    if (!is_socket(fd)){
+        ssize_t n=old_read(fd, buf, count);
+        push_event_to_database(F_READF,n,gettime(),getpid(),syscall(SYS_gettid),pthread_self(),p_parameter);
+        return n;
+    }
+
 #ifdef DEBUG
     char log_text[LOG_LENGTH]="init";
     sprintf(log_text,"%s\t","in read");
@@ -960,7 +1016,7 @@ ssize_t read(int fd, void *buf, size_t count)
             if((on_port==80)||(in_port==80)){
                 return n;
             }
-            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_READ,n,count,0,fd,RECV_FILTER,buf);
+            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_READ,n,count,0,fd,RECV_FILTER,p_parameter);
             errno=tmp_erro;
             return n;
         }
@@ -988,7 +1044,7 @@ ssize_t read(int fd, void *buf, size_t count)
             sprintf(log_text,"%s%s\n",log_text,"read done without uuid!");
             log_event(log_text);
 #endif
-            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_READ,n,count,n,fd,RECV_NORMALLY,buf);
+            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_READ,n,count,n,fd,RECV_NORMALLY,p_parameter);
             errno=tmp_erro;
             return n;
         }else{
@@ -1007,7 +1063,7 @@ ssize_t read(int fd, void *buf, size_t count)
                 sprintf(log_text,"%sresult:%ld\n",log_text,n);
                 log_event(log_text);
 #endif
-                push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_READ,n,count,n,fd,RECV_LEFT,buf);
+                push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_READ,n,count,n,fd,RECV_LEFT,p_parameter);
                 errno=tmp_erro;
                 return n;
             }else{
@@ -1026,12 +1082,12 @@ ssize_t read(int fd, void *buf, size_t count)
                             sprintf(log_text,"%sheader:%lu\tnormal\tresult:%ld\n",log_text,original_length,count);
                             log_event(log_text);
 #endif
-                            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_READ,ID_LENGTH,count,count,fd,RECV_FAIL,buf);
+                            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_READ,ID_LENGTH,count,count,fd,RECV_FAIL,p_parameter);
                             errno=tmp_erro;
                             return count;
                         }else{
                             memmove(buf,uuids,header_length);
-                            ssize_t second=old_read(fd,&buf[header_length],count-header_length);
+                            ssize_t second=old_read(fd,&((char *)buf)[header_length],count-header_length);
                             if (second<=0){
                                 log_important("note_noid_error_read");
                             }else{
@@ -1041,7 +1097,7 @@ ssize_t read(int fd, void *buf, size_t count)
                             sprintf(log_text,"%sheader:%lu\tnormal2\tresult:%ld\n",log_text,original_length,n);
                             log_event(log_text);
 #endif
-                            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_READ,n,count,n,fd,RECV_BYD,buf);
+                            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_READ,n,count,n,fd,RECV_BYD,p_parameter);
                             errno=tmp_erro;
                             return n;
                         }
@@ -1058,7 +1114,7 @@ ssize_t read(int fd, void *buf, size_t count)
                         sprintf(log_text,"%s\tuuid:%s\theader:%ld\tresult:%ld\n",log_text,tmp_id,original_length,n);
                         log_message3(log_text,strlen(log_text));
 #endif
-                        push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),tmp_id,gettime(),F_READ,n+ID_LENGTH,count,n,fd,RECV_ID,buf);
+                        push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),tmp_id,gettime(),F_READ,n+ID_LENGTH,count,n,fd,RECV_ID,p_parameter);
                         errno=tmp_erro;
                         return n;
                     }
@@ -1075,7 +1131,7 @@ ssize_t read(int fd, void *buf, size_t count)
                     sprintf(log_text,"%sresult:%ld\tempty\n",log_text,header_length);
                     log_event(log_text);
 #endif
-                    push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_READ,header_length,count,header_length,fd,f_type,NULL);
+                    push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_READ,header_length,count,header_length,fd,f_type,p_parameter);
                     errno=tmp_erro;
                     return header_length;
                 }
@@ -1141,6 +1197,12 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags){
     {
         handle = dlopen("libc.so.6", RTLD_LAZY);
         old_sendmsg = (SENDMSG)dlsym(handle, "sendmsg");
+    }
+    
+    char p_parameter[1024]="";
+    if(with_parameter){
+        char *template="(%d, %s, %d)";
+        sprintf(p_parameter,template,sockfd,"NULL",flags);
     }
     // if(!uuid_key){
     //     pthread_key_create(&uuid_key,NULL);
@@ -1239,7 +1301,7 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags){
                 errno=tmp_erro;
                 return n;
             }
-            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_SENDMSG,n,total,n,sockfd,SEND_FILTER,NULL);
+            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_SENDMSG,n,total,n,sockfd,SEND_FILTER,p_parameter);
             errno=tmp_erro;
             return n;
         }
@@ -1255,7 +1317,7 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags){
             sprintf(log_text,"%sresult:%ld\t%s\n",log_text,n,"sengmsg done without uuid!");
             log_event(log_text);
 #endif
-            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_SENDMSG,n,total,n,sockfd,SEND_NORMALLY,NULL);
+            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_SENDMSG,n,total,n,sockfd,SEND_NORMALLY,p_parameter);
             errno=tmp_erro;
             return n;
         }else{
@@ -1362,7 +1424,7 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags){
                 log_event(log_text);
 #endif
                 log_important("fatal_short_sendmsg");
-                push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),tmp_id,gettime(),F_SENDMSG,n,total,n,sockfd,SEND_FAIL,NULL);
+                push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),tmp_id,gettime(),F_SENDMSG,n,total,n,sockfd,SEND_FAIL,p_parameter);
                 errno=tmp_erro;
                 
                 return n;
@@ -1371,7 +1433,7 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags){
                 sprintf(log_text,"%s\tsuccess!\n",log_text);
                 log_event(log_text);
 #endif
-                push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),tmp_id,gettime(),F_SENDMSG,n,total,total,sockfd,SEND_ID,NULL);
+                push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),tmp_id,gettime(),F_SENDMSG,n,total,total,sockfd,SEND_ID,p_parameter);
                 
                 errno=tmp_erro;
                 return total;
@@ -1411,9 +1473,13 @@ ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags){
         handle = dlopen("libc.so.6", RTLD_LAZY);
         old_recvmsg = (RECVMSG)dlsym(handle, "recvmsg");
     }
-    // if(!uuid_key){
-    //     pthread_key_create(&uuid_key,NULL);
-    // }
+    
+    char p_parameter[1024]="";
+    if(with_parameter){
+        char *template="(%d, %s, %d)";
+        sprintf(p_parameter,template,sockfd,"NULL",flags);
+    }
+
 #ifdef DEBUG
     char log_text[LOG_LENGTH]="init";
     sprintf(log_text,"%s\t","in recvmsg");
@@ -1496,7 +1562,7 @@ ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags){
             if((on_port==80)||(in_port==80)){
                 return n;
             }
-            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECVMSG,n,n,n,sockfd,RECV_FILTER,NULL);
+            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECVMSG,n,n,n,sockfd,RECV_FILTER,p_parameter);
             errno=tmp_erro;
             return n;
         }
@@ -1527,7 +1593,7 @@ ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags){
             sprintf(log_text,"%s%s\n",log_text,"recvmsg done without uuid!");
             log_event(log_text);
 #endif
-            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECVMSG,n,n,n,sockfd,RECV_NORMALLY,NULL);
+            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECVMSG,n,n,n,sockfd,RECV_NORMALLY,p_parameter);
             errno=tmp_erro;
             return n;
         }else{
@@ -1549,11 +1615,11 @@ ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags){
                 tmp_erro=errno;
                 if(n<=0){
                     log_important("note_less0_recvmsg");
-                    push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECVMSG,n,length,n,sockfd,RECV_FAIL,NULL);
+                    push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECVMSG,n,length,n,sockfd,RECV_FAIL,p_parameter);
                     errno=tmp_erro;
                     return n;
                 }else{
-                    push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECVMSG,n,length,n,sockfd,RECV_LEFT,NULL);
+                    push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECVMSG,n,length,n,sockfd,RECV_LEFT,p_parameter);
                     errno=tmp_erro;
                     return n;
                 }
@@ -1601,13 +1667,13 @@ ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags){
             
             if(n==0){
                 log_important("fatal_shorthead2_readhead");
-                push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECVMSG,0,0,0,sockfd,RECV_HEADERR,NULL);
+                push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECVMSG,0,0,0,sockfd,RECV_HEADERR,p_parameter);
                 errno=tmp_erro;
                 msg->msg_iov=ori_iov;
                 msg->msg_iovlen=ori_iovlen;
                 return 0;
             }else if(n==-1){
-                push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECVMSG,-1,-1,-1,sockfd,RECV_HEADFAIL,NULL);
+                push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECVMSG,-1,-1,-1,sockfd,RECV_HEADFAIL,p_parameter);
                 errno=tmp_erro;
                 msg->msg_iov=ori_iov;
                 msg->msg_iovlen=ori_iovlen;
@@ -1615,7 +1681,7 @@ ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags){
             }else if((n<ID_LENGTH)&&(n>0)){
                 log_important("fatal_shorthead_readhead");
                 log_message(uuids,n,"check2");
-                push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECVMSG,0,0,0,sockfd,RECV_HEADERR,NULL);
+                push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECVMSG,0,0,0,sockfd,RECV_HEADERR,p_parameter);
                 msg->msg_iov=ori_iov;
                 msg->msg_iovlen=ori_iovlen;
                 errno=tmp_erro;
@@ -1650,14 +1716,14 @@ ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags){
                 tmp_erro=errno;
                 if(n<=0){
                     log_important("note_less1_recvmsg");
-                    push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECVMSG,original_length,length,n,sockfd,RECV_FAIL,NULL);
+                    push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_RECVMSG,original_length,length,n,sockfd,RECV_FAIL,p_parameter);
                     errno=tmp_erro;
                     return n;
                 }else{
                     char tmp_id[ID_LENGTH];
                     format_uuid(uuids,tmp_id);
                     
-                    push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),tmp_id,gettime(),F_RECVMSG,original_length,length,n,sockfd,RECV_ID,NULL);
+                    push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),tmp_id,gettime(),F_RECVMSG,original_length,length,n,sockfd,RECV_ID,p_parameter);
                     errno=tmp_erro;
                     return n;
                 }
@@ -1733,9 +1799,13 @@ ssize_t sendfile64(int out_fd, int in_fd, off64_t *offset, size_t count){
         old_sendfile64 = (SENDFILE64)dlsym(handle, "sendfile64");
         old_write=(WRITE)dlsym(handle,"write");
     }
-    // if(!uuid_key){
-    //     pthread_key_create(&uuid_key,NULL);
-    // }
+    
+    char p_parameter[1024]="";
+    if(with_parameter){
+        char *template="(%d, %d, %s, %ld)";
+        sprintf(p_parameter,template,out_fd,in_fd,"NULL",count);
+    }
+    
     if(is_socket(in_fd)){
         log_important("note_insock_sendfile64");
     }
@@ -1820,7 +1890,7 @@ ssize_t sendfile64(int out_fd, int in_fd, off64_t *offset, size_t count){
                 errno=tmp_erro;
                 return n;
             }
-            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_SEND64,n,count,n,out_fd,SEND_FILTER,NULL);
+            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_SEND64,n,count,n,out_fd,SEND_FILTER,p_parameter);
             errno=tmp_erro;
             return n;
         }
@@ -1833,7 +1903,7 @@ ssize_t sendfile64(int out_fd, int in_fd, off64_t *offset, size_t count){
             sprintf(log_text,"%sresult:%ld\t%s\n",log_text,n,"sendfile done without uuid!");
             log_event(log_text);
 #endif
-            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_SEND64,n,count,n,out_fd,SEND_NORMALLY,NULL);
+            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_SEND64,n,count,n,out_fd,SEND_NORMALLY,p_parameter);
             errno=tmp_erro;
             return n;
         }
@@ -1890,7 +1960,7 @@ ssize_t sendfile64(int out_fd, int in_fd, off64_t *offset, size_t count){
             sprintf(log_text,"%sid_flag:%d\terrno:%d\tlength:%ld\tsendfile failed!",log_text,flag,tmp_erro,n);
             log_event(log_text);
 #endif
-            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_SEND64,n,count,n,out_fd,SEND_ERROR,NULL);
+            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_SEND64,n,count,n,out_fd,SEND_ERROR,p_parameter);
             errno=tmp_erro;
             return n;
         }
@@ -1953,7 +2023,7 @@ ssize_t sendfile64(int out_fd, int in_fd, off64_t *offset, size_t count){
         sprintf(log_text,"%suuid:%s\terrno:%d\tn:%ld\treturn:%ld\n",log_text,tmp_id,tmp_erro,n,rvalue);
         log_event(log_text);
 #endif
-        push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),tmp_id,gettime(),F_SEND64,n,count,rvalue,out_fd,f_type,NULL);
+        push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),tmp_id,gettime(),F_SEND64,n,count,rvalue,out_fd,f_type,p_parameter);
         if(n!=count){
             errno=tmp_erro;
         }
@@ -1998,9 +2068,13 @@ ssize_t writev(int fd, const struct iovec *iov, int iovcnt){
         handle = dlopen("libc.so.6", RTLD_LAZY);
         old_writev = (WRITEV)dlsym(handle, "writev");
     }
-    // if(!uuid_key){
-    //     pthread_key_create(&uuid_key,NULL);
-    // }
+    
+    char p_parameter[1024]="";
+    if(with_parameter){
+        char *template="(%d, %s, %d)";
+        sprintf(p_parameter,template,fd,"NULL",iovcnt);
+    }
+
     if (!is_socket(fd)){
         return old_writev(fd,iov,iovcnt);
     }
@@ -2092,7 +2166,7 @@ ssize_t writev(int fd, const struct iovec *iov, int iovcnt){
                 errno=tmp_erro;
                 return n;
             }
-            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_WRITEV,n,total,n,fd,SEND_FILTER,NULL);
+            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_WRITEV,n,total,n,fd,SEND_FILTER,p_parameter);
             errno=tmp_erro;
             return n;
         }
@@ -2108,7 +2182,7 @@ ssize_t writev(int fd, const struct iovec *iov, int iovcnt){
             sprintf(log_text,"%sresult:%ld\t%s\n",log_text,n,"writev done without uuid!");
             log_event(log_text);
 #endif
-            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_WRITEV,n,total,n,fd,SEND_NORMALLY,NULL);
+            push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),"",gettime(),F_WRITEV,n,total,n,fd,SEND_NORMALLY,p_parameter);
             errno=tmp_erro;
             return n;
         }else{
@@ -2137,7 +2211,7 @@ ssize_t writev(int fd, const struct iovec *iov, int iovcnt){
                 log_event(log_text);
 #endif
                 log_important("fatal_short_writev");
-                push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),tmp_id,gettime(),F_WRITEV,n,total,n-ID_LENGTH,fd,SEND_FAIL,NULL);
+                push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),tmp_id,gettime(),F_WRITEV,n,total,n-ID_LENGTH,fd,SEND_FAIL,p_parameter);
                 errno=tmp_erro;
                 return n-ID_LENGTH;
             }else{
@@ -2145,7 +2219,7 @@ ssize_t writev(int fd, const struct iovec *iov, int iovcnt){
                 sprintf(log_text,"%s\tsuccess!\n",log_text);
                 log_event(log_text);
 #endif
-                push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),tmp_id,gettime(),F_WRITEV,n,total,total,fd,SEND_ID,NULL);
+                push_to_database(on_ip,on_port,in_ip,in_port,getpid(),pthread_self(),tmp_id,gettime(),F_WRITEV,n,total,total,fd,SEND_ID,p_parameter);
                 errno=tmp_erro;
                 return total;
             }
@@ -2216,6 +2290,7 @@ int  pthread_create(pthread_t  *thread,  const pthread_attr_t  *attr,  void  *(*
         handle = dlopen("libpthread.so.0", RTLD_LAZY);
         old_create = (P_CREATE)dlsym(handle, "pthread_create");
     }
+
     
     pthread_t tmp=pthread_self();
     
@@ -2246,9 +2321,9 @@ int  pthread_create(pthread_t  *thread,  const pthread_attr_t  *attr,  void  *(*
     temp->ptid=tmp;
     temp->ttime=gettime();
     
-//    char tmp_log[1024];
-//    sprintf(tmp_log,"ppid:%ld\tpktid:%ld\ttemp->ppid:%ld\ttemp->pktid:%ld\n",getpid(),syscall(SYS_gettid),temp->ppid,temp->pktid);
-//    log_event(tmp_log);
+    //    char tmp_log[1024];
+    //    sprintf(tmp_log,"ppid:%ld\tpktid:%ld\ttemp->ppid:%ld\ttemp->pktid:%ld\n",getpid(),syscall(SYS_gettid),temp->ppid,temp->pktid);
+    //    log_event(tmp_log);
     
     int result=old_create(thread,attr,intermedia,(void *)temp);
     
@@ -2846,17 +2921,22 @@ int connect(int socket, const struct sockaddr *addr, socklen_t length)
     init_context();
     static void *handle = NULL;
     static CONN old_conn = NULL;
-
+    
     if( !handle )
     {
         handle = dlopen("libc.so.6", RTLD_LAZY);
         old_conn = (CONN)dlsym(handle, "connect");
     }
-
+    char p_parameter[1024]="";
+    if(with_parameter){
+        char *template="(%d, %s, %ld)";
+        sprintf(p_parameter,template,socket,"NULL",length);
+    }
+    
     int result=old_conn(socket,addr,length);
     int tmp_erro=errno;
-
-    push_event_to_database(F_CONNECT,result,gettime(),getpid(),syscall(SYS_gettid),pthread_self());
+    
+    push_event_to_database(F_CONNECT,result,gettime(),getpid(),syscall(SYS_gettid),pthread_self(),p_parameter);
     errno=tmp_erro;
     return result;
 }
@@ -2865,57 +2945,133 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen){
     init_context();
     static void *handle = NULL;
     static ACCEPT old_accept = NULL;
-
+    
     if( !handle )
     {
         handle = dlopen("libc.so.6", RTLD_LAZY);
         old_accept = (ACCEPT)dlsym(handle, "accept");
     }
+    
+    char p_parameter[1024]="";
+    if(with_parameter){
+        char *template="(%d, %s, %s)";
+        sprintf(p_parameter,template,socket,"NULL","NULL");
+    }
+    
     int result=old_accept(sockfd,addr,addrlen);
     int tmp_erro=errno;
+    
+    push_event_to_database(F_ACCEPT,result,gettime(),getpid(),syscall(SYS_gettid),pthread_self(),p_parameter);
+    errno=tmp_erro;
+    return result;
+}
 
-    push_event_to_database(F_ACCEPT,result,gettime(),getpid(),syscall(SYS_gettid),pthread_self());
+//int open(const char *pathname, int flags,...){
+//    
+//    init_context();
+//    static void *handle = NULL;
+//    static OPEN old_open = NULL;
+//
+//    if( !handle )
+//    {
+//        handle = dlopen("libc.so.6", RTLD_LAZY);
+//        old_open = (OPEN)dlsym(handle, "open");
+//    }
+//    
+//    va_list ap;
+//    mode_t ex;
+//    int third=0;
+//    
+//    va_start(ap, flags);
+//    if(*fmt){
+//        ex=va_arg(ap, mode_t);
+//        third=1;
+//    }
+//    va_end(ap);
+//    
+//    char p_parameter[1024]="";
+//    if(with_parameter){
+//        char string_parameter[512];
+//        if(third){
+//            char *template="(%s, %d, %s)";
+//            int k;
+//            for(k=0;k<string_parameter_length;k++){
+//                string_parameter[k]=pathname[k];
+//            }
+//            string_parameter[string_parameter_length]='\0';
+//            sprintf(p_parameter,template,string_parameter,flags,"NULL");
+//        }else{
+//            char *template="(%s, %d)";
+//            int k;
+//            for(k=0;k<string_parameter_length;k++){
+//                string_parameter[k]=pathname[k];
+//            }
+//            string_parameter[string_parameter_length]='\0';
+//            sprintf(p_parameter,template,string_parameter,flags);
+//        }
+//
+//    }
+//
+//    int result=old_open(pathname,flags,ex);
+//    int tmp_erro=errno;
+////
+//    push_event_to_database(F_OPEN,result,gettime(),getpid(),syscall(SYS_gettid),pthread_self());
+//    errno=tmp_erro;
+//    return result;
+//}
+
+int select(int nfds, fd_set *readfds, fd_set *writefds,fd_set *exceptfds, struct timeval *timeout){
+    init_context();
+    static void *handle = NULL;
+    static SELECT old_select = NULL;
+    
+    if( !handle )
+    {
+        handle = dlopen("libc.so.6", RTLD_LAZY);
+        old_select = (SELECT)dlsym(handle, "select");
+    }
+    
+    char p_parameter[1024]="";
+    
+    if(with_parameter){
+        char *template="(%d, %s, %s, %s, %s)";
+        sprintf(p_parameter,template,nfds,"NULL","NULL","NULL","NULL");
+    }
+    
+    int result=old_select(nfds,readfds,writefds,exceptfds,timeout);
+    int tmp_erro=errno;
+    
+    push_event_to_database(F_SELECT,result,gettime(),getpid(),syscall(SYS_gettid),pthread_self(),p_parameter);
     errno=tmp_erro;
     return result;
 }
 
 //result in *** stack smashing detected ***: ssh terminated
-//int close(int fd)
-//{
-//    static void *handle = NULL;
-//    static CLOSE old_close = NULL;
-//    struct sockaddr_in sin;
-//    struct sockaddr_in son;
-//    socklen_t s_len = sizeof(sin);
-//    if( !handle )
-//    {
-//        handle = dlopen("libc.so.6", RTLD_LAZY);
-//        old_close = (CLOSE)dlsym(handle, "close");
-//    }
-//    if  ((getsockname(fd, (struct sockaddr *)&sin, &s_len) != -1) &&(getpeername(fd, (struct sockaddr *)&son, &s_len) != -1)){
-//        unsigned short int in_port;
-//        unsigned short int on_port;
-//        char *in_ip;
-//        char *on_ip;
-//        in_port=ntohs(sin.sin_port);
-//        in_ip=inet_ntoa(sin.sin_addr);
-//        on_port=ntohs(son.sin_port);
-//        on_ip=inet_ntoa(son.sin_addr);
-//
-//        // filter our own service, db and controller
-//        if ((in_port==80) || (on_port==80)||(strcmp(in_ip,controllerip)==0)||(strcmp(on_ip,controllerip)==0)){
-//            return old_close(fd);
-//        }else{
-//            mark_socket_close(fd);
-//            return old_close(fd);
-//        }
-//
-//        return old_close(fd);
-//    }
-//
-//    return old_close(fd);
-//
-//}
+int close(int fd)
+{
+    static void *handle = NULL;
+    static CLOSE old_close = NULL;
+    struct sockaddr_in sin;
+    struct sockaddr_in son;
+    socklen_t s_len = sizeof(sin);
+    if( !handle )
+    {
+        handle = dlopen("libc.so.6", RTLD_LAZY);
+        old_close = (CLOSE)dlsym(handle, "close");
+    }
+    char p_parameter[1024]="";
+    
+    if(with_parameter){
+        char *template="(%d)";
+        sprintf(p_parameter,template,fd);
+    }
+    int result=old_close(fd);
+    int tmp_erro=errno;
+    
+    push_event_to_database(F_CLOSE,result,gettime(),getpid(),syscall(SYS_gettid),pthread_self(),p_parameter);
+    errno=tmp_erro;
+    return result;
+}
 
 sa_family_t get_socket_family(int sockfd){
     struct sockaddr_storage tt_in;
@@ -2984,7 +3140,7 @@ size_t op_storage(int type,int sockfd,size_t left){
                 buffer_storage[i]->used=1;
                 buffer_storage[i]->sockfd=sockfd;
                 buffer_storage[i]->left=left;
-//                                log_message("save",5,"operate");
+                //                                log_message("save",5,"operate");
                 //                char tmp[1024]="";
                 //                sprintf(tmp,"socket:%d\tput:%ld!\n",sockfd,left);
                 //                log_message3(tmp,strlen(tmp));
@@ -3009,7 +3165,7 @@ size_t op_storage(int type,int sockfd,size_t left){
                 buffer_storage[i]->used=0;
                 buffer_storage[i]->left=0;
                 //                sprintf(tmp,"%s\treturn:%lu\n!",tmp,result);
-//                                log_message("load",5,"operate");
+                //                                log_message("load",5,"operate");
                 //                log_message3(tmp,strlen(tmp));
                 return result;
             }
@@ -3396,34 +3552,46 @@ void log_message(char message[],int length, const char * flag){
 //return 0, if this message is recv/send from outer host/port and it should be recv/send directly
 //return 1, if this message is internal message
 int check_filter(char* on_ip,char* in_ip,int on_port,int in_port){
-
-    int port_list_length=3;
-
-    int illegal_port_list[]={22,53,80};
-    int i=0;
-    short internal_on_ip=0;
-    short internal_in_ip=0;//0  means it's outer ip
-    for(i=0;i<ip_list_length;i++){
-        if(strcmp(on_ip,legal_ip_list[i])==0){
-            internal_on_ip=1;
+    
+    int on_filter=0;
+    int in_filter=0;
+    
+    int i;
+    for(i=0;i<white_entity_length;i++){
+        struct white_entity tmp_entity=legal_entity_list[i];
+        if(strcmp(on_ip,tmp_entity.ip_address)==0){//in the ip_list
+            int j;
+            int hit_flag=0;
+            for(j=0;j<tmp_entity.port_counter;j++){
+                if (on_port==tmp_entity.white_ports[j]){
+                    hit_flag=1;
+                    break;
+                }
+            }
+            if(!hit_flag){
+                on_filter=1;
+            }
         }
-        if(strcmp(in_ip,legal_ip_list[i])==0){
-            internal_in_ip=1;
+        if(strcmp(in_ip,tmp_entity.ip_address)==0){//in the ip_list
+            int j;
+            int hit_flag=0;
+            for(j=0;j<tmp_entity.port_counter;j++){
+                if (in_port==tmp_entity.white_ports[j]){
+                    hit_flag=1;
+                }
+            }
+            if(!hit_flag){
+                in_filter=1;
+            }
         }
+        
     }
-    if((internal_in_ip==0)||(internal_on_ip==0)){
+    //in scope, should intercept
+    if(on_filter&&in_filter){
+        return 1;
+    }else{
         return 0;
     }
-    
-    for(i=0;i<port_list_length;i++){
-        if((on_port==illegal_port_list[i])||(in_port==illegal_port_list[i])){
-            return 0;
-        }
-    }
-    char log[1024];
-    //    sprintf(log,"on_ip:%s\tin_ip:%s\ton_port:%d\tin_port:%d\t",on_ip,in_ip,on_port,in_port);
-    //    log_event(log);
-    return 1;
 }
 
 
@@ -3505,6 +3673,7 @@ void translate(char * content,const char *message,int length){
 //call this at the staring poing of every function
 //to init the unit_id
 void init_context(){
+    init_config();
     if(uuid_key==12345){//new or after exec
         pthread_key_create(&uuid_key,NULL);//actually we should release the pointer when the thread exits
         char * tmp_env=malloc(ID_LENGTH);
@@ -3522,10 +3691,176 @@ void init_context(){
         }
     }
 }
+// initialize all the necessary config
+void init_config(){
+    
+    if(!config_init_flag){
+        config_t cfg;
+        config_setting_t *setting;
+        
+        config_init(&cfg);
+        
+        if(!config_read_file(&cfg,config_file)){
+            fprintf(stderr, "%s:%d - %s\n", config_error_file(&cfg),
+                    config_error_line(&cfg), config_error_text(&cfg));
+            config_destroy(&cfg);
+        }
+        
+        
+        //for white entity list
+        setting=config_lookup(&cfg,"entity_white_list");
+        if(setting!=NULL){
+            white_entity_length=config_setting_length(setting);
+            if(white_entity_length<=0){
+                fprintf(stderr, "%s\n", "Config error! At least one ip in the list!");
+                config_destroy(&cfg);
+                return;
+            }
+            legal_entity_list=(struct white_entity*)malloc(white_entity_length*sizeof(struct white_entity));
+            int i;
+            for(i=0;i<white_entity_length;i++){
+                //                struct white_entity *tmp=&legal_entity_list[i];
+                const char *ports_list;
+                config_setting_t *entity=config_setting_get_elem(setting,i);
+                if(!(config_setting_lookup_string(entity,"ip_address",&(legal_entity_list[i].ip_address))&&config_setting_lookup_string(entity,"excluded_ports",&ports_list))){
+                    fprintf(stderr, "%s\n", "Config error! No ip address in the ip while list!");
+                    config_destroy(&cfg);
+                    return;
+                }else{
+                    char** string_port_list;
+                    int length=0;
+                    int j;
+                    string_port_list=str_split(ports_list,&length,',');
+                    //set the ports list with the defaults ones
+                    if(length<=0){
+                        legal_entity_list[i].white_ports=malloc(2*sizeof(int));
+                        legal_entity_list[i].port_counter=2;
+                        legal_entity_list[i].white_ports[0]=22;
+                        legal_entity_list[i].white_ports[1]=53;
+                    }else{
+                        legal_entity_list[i].white_ports=malloc(length*sizeof(int));
+                        legal_entity_list[i].port_counter=length;
+                        for(j=0;j<length;j++){
+                            legal_entity_list[i].white_ports[j]=atoi(string_port_list[j]);
+                        }
+                    }
+                }
+            }
+        }else{
+            fprintf(stderr, "%s\n", "Config error! No ip while list specified!");
+            config_destroy(&cfg);
+            return;
+        }
+        
+        //for combining logs, optional
+        config_lookup_int(&cfg,"enhance_log",&enhance_log);
+        if (enhance_log){
+            if(!config_lookup_string(&cfg,"log_file_rule",&logRule)){
+                fprintf(stderr, "%s\n", "Config error! No log file rules are specified!");
+                config_destroy(&cfg);
+                enhance_log=0;
+            }
+        }
+        
+        //for whether record parameters
+        config_lookup_int(&cfg,"with_parameter",&with_parameter);
+        config_lookup_int(&cfg,"string_parameter_length",&string_parameter_length);
+        if(string_parameter_length>=512){
+            fprintf(stderr, "%s\n", "Config error! Cannot log string parameter morr than 512!");
+            config_destroy(&cfg);
+            return;
+        }
+        
+        //for whether enable tracing
+        config_lookup_int(&cfg,"open_trace",&with_uuid);
+        
+        //for how to collect trace data
+        //0 == local file
+        //1 == remote network
+        config_lookup_int(&cfg,"collection_mode",&collection_mode);
+        if (collection_mode==0){
+            if(!config_lookup_string(&cfg,"data_file",&dataFilePath)){
+                fprintf(stderr, "%s\n", "Config error! No data file specified!");
+                config_destroy(&cfg);
+                return;
+            }
+        }else if(collection_mode==1){
+            if(!(config_lookup_string(&cfg,"controller_ip",&controllerip)&&config_lookup_string(&cfg,"controller_service",&controller_service))){
+                fprintf(stderr, "%s\n", "Config error! No controller specified!");
+                config_destroy(&cfg);
+                return;
+            }
+        }
+        
+        //for debugging, we don't check wether the configure file exists or not
+        config_lookup_string(&cfg,"log_file",&filePath);
+        config_lookup_string(&cfg,"debug_file",&debugFilePath);
+        config_lookup_string(&cfg,"error_file",&errFilePath);
+        config_init_flag=1;
+    }
+    //    print_config();
+    
+}
 
+void print_config(){
+    char * template="config instance:\n\tflag_inited: %d\twith_parameter: %d\tparameter_lenth: %d\tcollection_mode: %d\ndata_file: %s\t controllip: %s\tcontroller_service: %s\t\nwith_uuid: %d\tentity_length: %d\tthe first while ip:%s\tports:%d\tenhance_log: %d\tlog_rule: %s\n";
+    char result[2048];
+    sprintf(result,template,config_init_flag,with_parameter,string_parameter_length,collection_mode,dataFilePath,controllerip,controller_service,with_uuid,white_entity_length,legal_entity_list[0].ip_address,legal_entity_list[0].white_ports[0],enhance_log,logRule);
+    
+    printf(result);
+    
+    
+}
+
+
+//split a char* with a delimiter
+char** str_split(char* a_str, int* length,const char a_delim){
+    char** result    = 0;
+    size_t count     = 0;
+    char* tmp        = a_str;
+    char* last_comma = 0;
+    char delim[2];
+    delim[0] = a_delim;
+    delim[1] = 0;
+    
+    /* Count how many elements will be extracted. */
+    while (*tmp){
+        if (a_delim == *tmp)
+        {
+            count++;
+            last_comma = tmp;
+        }
+        tmp++;
+    }
+    
+    /* Add space for trailing token. */
+    count += last_comma < (a_str + strlen(a_str) - 1);
+    
+    /* Add space for terminating null string so caller
+     knows where the list of returned strings ends. */
+    count++;
+    
+    result = malloc(sizeof(char*) * count);
+    
+    if (result){
+        size_t idx  = 0;
+        char* token = strtok(a_str, delim);
+        
+        while (token){
+            
+            assert(idx < count);
+            *(result + idx++) = strdup(token);
+            token = strtok(0, delim);
+        }
+        assert(idx == count - 1);
+        *(result + idx) = 0;
+    }
+    *length=count-1;
+    return result;
+}
 
 //type=24
-int push_to_database(char* on_ip,int on_port,char* in_ip, int in_port,pid_t pid,pthread_t tid,char* uuid,long long time,char ftype,long length,long supposed_length,long rlength,int socketid,char dtype,const char * message){
+int push_to_database(char* on_ip,int on_port,char* in_ip, int in_port,pid_t pid,pthread_t tid,char* uuid,long long time,char ftype,long length,long supposed_length,long rlength,int socketid,char dtype, char * p_parameter){
     
     char * original_unit=(char *)pthread_getspecific(uuid_key);
     
@@ -3560,45 +3895,14 @@ int push_to_database(char* on_ip,int on_port,char* in_ip, int in_port,pid_t pid,
         }
     }
     
-    // To do
-    
-    char *tmpMsg=(char *)malloc(LOG_LENGTH);
-    if((ftype==F_SEND)||(ftype==F_WRITE)||(ftype==F_READ)||(ftype==F_RECV)){
-        if(rlength>0){
-            if(!find_job(tmpMsg,message,rlength)){
-                tmpMsg[0]='\0';
-            }
-        }else{
-            tmpMsg[0]='\0';
-        }
-    }else{
-        tmpMsg[0]='\0';
-    }
-    
-    //    char *tmpMsg2=(char *)malloc(1024);
-    //    if((ftype==F_SEND)||(ftype==F_WRITE)){
-    //
-    //        //for job ID
-    //        if((supposed_length>0)&&(supposed_length<200000)){
-    //            if(!find_job(tmpMsg,message,rlength)){
-    //                tmpMsg[0]='\0';
-    //            }
-    //        }else{
-    //            tmpMsg[0]='\0';
-    //        }
-    //
-    //        // for message
-    //        translate(tmpMsg2,message,rlength);
-    //    }else{
-    //    tmpMsg[0]='\0';
-    //    tmpMsg2[0]='\0';
-    //    }
-    
-    char * parameter_tmp="on_ip=%s&on_port=%d&in_ip=%s&in_port=%ld&pid=%u&ktid=%ld&tid=%lu&uuid=%s&unit_uuid=%s&ttime=%lld&ftype=%d&length=%ld&supposed_length=%ld&rlength=%ld&rtype=%d&socket=%d&dtype=%d&message=%s&message2=%s";
     char parameter[4096];
-    sprintf(parameter,parameter_tmp,on_ip,on_port,in_ip,in_port,pid,syscall(SYS_gettid),tid,uuid,tmp_unit,time,ftype,length,supposed_length,rlength,R_DATABASE,socketid,dtype,tmpMsg,"");
-    free(tmpMsg);
-    //    free(tmpMsg2);
+    if(with_parameter){
+        char * parameter_tmp="on_ip=%s&on_port=%d&in_ip=%s&in_port=%ld&pid=%u&ktid=%ld&tid=%lu&uuid=%s&unit_uuid=%s&ttime=%lld&ftype=%d&length=%ld&supposed_length=%ld&rlength=%ld&rtype=%d&socket=%d&dtype=%d&parameter=%s";
+        sprintf(parameter,parameter_tmp,on_ip,on_port,in_ip,in_port,pid,syscall(SYS_gettid),tid,uuid,tmp_unit,time,ftype,length,supposed_length,rlength,R_DATABASE,socketid,dtype,p_parameter);
+    }else{
+        char * parameter_tmp="on_ip=%s&on_port=%d&in_ip=%s&in_port=%ld&pid=%u&ktid=%ld&tid=%lu&uuid=%s&unit_uuid=%s&ttime=%lld&ftype=%d&length=%ld&supposed_length=%ld&rlength=%ld&rtype=%d&socket=%d&dtype=%d";
+        sprintf(parameter,parameter_tmp,on_ip,on_port,in_ip,in_port,pid,syscall(SYS_gettid),tid,uuid,tmp_unit,time,ftype,length,supposed_length,rlength,R_DATABASE,socketid,dtype);
+    }
     
     return getresponse(parameter);
     //    return 0;
@@ -3617,11 +3921,11 @@ int push_thread_db(long int pid,long int ktid,pthread_t tid,long int ppid,long i
     //    log_message(parameter,strlen(parameter));
     
     
-//    char tmp_log[1024];
-//    sprintf(tmp_log,"start:%d-pre:%d-pid=%ld-ktid=%ld-ppid=%ld-pktid=%ld-ptid=%lu-ttime=%lld",tmp_erro,errno,pid,ktid,ppid,pktid,ptid,time);
-//    log_event(tmp_log);
-//    sprintf(tmp_log,"after:%d\n",errno);
-//    log_event(tmp_log);
+    //    char tmp_log[1024];
+    //    sprintf(tmp_log,"start:%d-pre:%d-pid=%ld-ktid=%ld-ppid=%ld-pktid=%ld-ptid=%lu-ttime=%lld",tmp_erro,errno,pid,ktid,ppid,pktid,ptid,time);
+    //    log_event(tmp_log);
+    //    sprintf(tmp_log,"after:%d\n",errno);
+    //    log_event(tmp_log);
     
     return getresponse(parameter);
     
@@ -3651,14 +3955,19 @@ int push_thread_db2(char *parameter){
 }
 
 //type=29
-int push_event_to_database(int event_type,int result,long long time,pid_t process,pid_t ktid,pthread_t tid){
-
-    char * parameter_tmp="ftype=%d&result=%d&ltime=%lld&pid=%u&ktid=%u&tid=%lu&unit_uuid=%s&rtype=%d";
-    char * original_unit=(char *)pthread_getspecific(uuid_key);
+int push_event_to_database(int event_type,int result,long long time,pid_t process,pid_t ktid,pthread_t tid,char *p_parameter){
     char parameter[2048];
-    sprintf(parameter, parameter_tmp,event_type,result,time,process,ktid,tid,original_unit,R_EVENT);
+    char * original_unit=(char *)pthread_getspecific(uuid_key);
+    if(with_parameter){
+        char * parameter_tmp="ftype=%d&result=%d&ltime=%lld&pid=%u&ktid=%u&tid=%lu&unit_uuid=%s&rtype=%d&parameter=%s";
+        sprintf(parameter, parameter_tmp,event_type,result,time,process,ktid,tid,original_unit,R_EVENT,p_parameter);
+    }else{
+        char * parameter_tmp="ftype=%d&result=%d&ltime=%lld&pid=%u&ktid=%u&tid=%lu&unit_uuid=%s&rtype=%d";
+        sprintf(parameter, parameter_tmp,event_type,result,time,process,ktid,tid,original_unit,R_EVENT);
+    }
     return getresponse(parameter);
 }
+
 
 
 ////type=25
@@ -3927,4 +4236,5 @@ ssize_t check_read_rest(char * buf,int sockfd,size_t length, size_t count, int f
         
     }
 }
+
 
