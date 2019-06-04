@@ -7,14 +7,15 @@
 ```bash
 apt-get install uuid-dev
 apt-get install libcurl4-openssl-dev
+apt-get install libconfig libconfig++-dev libconfig-dev
 ```
 **CentOS**
 ```bash
 yum install e2fsprogs-devel
 yum install uuid-devel
 yum install libuuid-devel
-yum install curl 
-yum install curl-devel.x86_64
+yum install curl curl-devel
+yum install libconfig libconfig-devel
 ```
 2）编译
 
