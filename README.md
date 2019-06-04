@@ -56,7 +56,7 @@ gcc -o client1 client1.c
 LD_PRELOAD=/home/trace/hook.so server（先运行）
 LD_PRELOAD=/home/trace/hook.so client1 
 ```
-生成的traceData位于**/tmp/trace/**目录下
+默认生成的traceData位于**/tmp/**目录下，可在src/trace.conf文件中修改这一目录  
 
 
 
