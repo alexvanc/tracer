@@ -37,6 +37,8 @@
 #include <limits.h>
 #include <sys/sendfile.h>
 #include <stdarg.h>
+#include <libconfig.h>
+#include <assert.h>
 
 #define MAX_SPACE 1000000
 #define LOG_LENGTH 2048
@@ -88,13 +90,17 @@
 #define F_CONNECT 13
 #define F_SOCKET 14
 #define F_CLOSE 15
+#define F_OPEN 16
 #define F_SEND64 17
+#define F_SELECT 18
 #define F_SENDFILE 19
 #define F_ACCEPT 20
 #define F_FORK 21
 #define F_VFORK 22
 #define F_PTCREATE 23
 #define F_PTJOIN 24
+#define F_WRITEF 25
+#define F_READF 26
 
 
 
@@ -169,6 +175,11 @@ struct storage{
     short used;
     size_t left;
 };
+struct white_entity{
+    const char * ip_address;
+    int port_counter;
+    int* white_ports;
+};
 
 typedef ssize_t(*RECV)(int sockfd, void *buf, size_t len, int flags);
 typedef ssize_t(*SEND)(int sockfd, const void *buf, size_t len, int flags);
@@ -195,6 +206,9 @@ typedef int(*CONN)(int socket, const struct sockaddr *addr, socklen_t length);
 typedef int(*ACCEPT)(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 //close
 typedef int(*CLOSE)(int fd);
+
+typedef int(*OPEN)(const char *pathname, int flags,...);
+typedef int(*SELECT)(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout);
 
 typedef int(*P_CREATE)(pthread_t *thread, const pthread_attr_t *attr,void *(*start_routine) (void *), void *arg);
 typedef int(*K_DELETE)(pthread_key_t key);
@@ -255,10 +269,10 @@ ssize_t check_read(char *uuids, char* buf,size_t count,int sockfd, ssize_t* leng
 int push_to_local_database(char*,int,char*,int,pid_t,pthread_t,char*,long long,char,int);
 
 //send the message to the central db directly
-int push_to_database(char*,int,char*,int,pid_t,pthread_t,char*,long long,char,long,long,long,int,char,const char *);
+int push_to_database(char*,int,char*,int,pid_t,pthread_t,char*,long long,char,long,long,long,int,char,char *);
 
 //send the message to the central db directly
-int push_event_to_database(int ,int ,long long ,pid_t ,pid_t ,pthread_t );
+int push_event_to_database(int ,int ,long long ,pid_t ,pid_t ,pthread_t ,char *);
 
 //send the message to the central db directly
 int push_thread_db(long int ,long int,pthread_t ,long int,long int,pthread_t,long long );
@@ -279,6 +293,8 @@ int is_socket(int);
 //get local timestamp
 long long gettime();
 
+char** str_split(char* a_str, int* length,const char a_delim);
+
 //log infomation to local file
 void log_event(char*);
 
@@ -292,6 +308,8 @@ void log_message(char*,int,const char *);
 char ** init_uuids(ssize_t m);
 
 void init_context();
+void init_config();
+void print_config();
 
 //check a socket is a unix socket or inet socket
 sa_family_t get_socket_family(int sockfd);
@@ -320,3 +338,4 @@ int check_filter(char* on_ip,char* in_ip,int on_port,int in_port);
 
 //eliminate the variable part of uuid
 int format_uuid(char uuid[ID_LENGTH],char format_uuid[ID_LENGTH]);
+
