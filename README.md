@@ -18,11 +18,10 @@ yum install curl-devel.x86_64
 ```
 2）编译
 
-  a)  修改src/tracer.c文件
+  a)  修改src/trace.conf文件
  
-第11、12行的IP改为本机IP(如果是容器，则改为容器IP)
-第18行的*legal_ip_list*改为需要追踪的机器的IP(如有多个，依次添加)
-**注意 :** 第17行的*ip_list_length*需要与第18行的*legal_ip_list*数组长度一致。
+第8、9行的IP改为本机IP(如果是容器，则改为容器IP)
+第27行的*white ip/ports list*改为需要追踪的机器的IP(如有多个，依次添加)
 
   b) 编译
 
@@ -63,7 +62,7 @@ LD_PRELOAD=/home/trace/hook.so client1
 ## REPTrace 因果关系分析
 ### 1. 环境准备
 python 2.7+
-mysql 5.5+
+mysql 5.5
 
 ### 2. 修改配置文件
 ```bash
