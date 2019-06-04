@@ -43,9 +43,9 @@ net.ipv6.conf.lo.disable_ipv6 = 1
 保存文件后执行
 sudo sysctl -p
 ```
-2）追踪应用程序执行过程
-LD_PRELOAD=/home/trace/hook.so 应用运行命令
-如运行testcase1
+2）追踪应用程序执行过程  
+LD_PRELOAD=/home/trace/hook.so 应用运行命令  
+如运行testcase1  
 
 ```bash
 cd ./testcase/case1
