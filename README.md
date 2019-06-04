@@ -20,7 +20,7 @@ yum install curl-devel.x86_64
 
   a)  修改src/trace.conf文件
  
-第8、9行的IP改为本机IP(如果是容器，则改为容器IP)
+第8、9行的IP改为本机IP(如果是容器，则改为容器IP)  
 第27行的*white ip/ports list*改为需要追踪的机器的IP(如有多个，依次添加)
 
   b) 编译
